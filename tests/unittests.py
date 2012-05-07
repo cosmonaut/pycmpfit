@@ -1,4 +1,5 @@
 import unittest
+import math
 import numpy as np
 import pycmpfit
 
@@ -88,40 +89,90 @@ def quadratic_userfunc(m, n, x, private_data):
 class QuadraticTest(unittest.TestCase):
 
     def setUp(self):
-            self.x = np.array([-1.7237128E+00,1.8712276E+00,-9.6608055E-01,
-                               -2.8394297E-01,1.3416969E+00,1.3757038E+00,
-                               -1.3703436E+00,4.2581975E-02,-1.4970151E-01,
-                               8.2065094E-01], dtype = np.float64)
-            self.y = np.array([2.3095947E+01,2.6449392E+01,1.0204468E+01,
-                               5.40507,1.5787588E+01,1.6520903E+01,
-                               1.5971818E+01,4.7668524E+00,4.9337711E+00,
-                               8.7348375E+00], dtype = np.float64)
-
-            self.ey = np.zeros((10), dtype = np.float64)
-            self.ey[:] = 0.2
-
-            self.user_d = {"x": self.x, "y": self.y, "ey": self.ey}
-
-            self.m = 10
-            self.n = 3
-
-            self.pars = np.array([1.0, 1.0, 1.0], dtype = np.float64)
-            self.act = np.array([4.7, 0.0, 6.2], dtype = np.float64)
-            
-            self.fit = pycmpfit.Mpfit(quadratic_userfunc, 
-                                      self.m, 
-                                      self.pars, 
-                                      private_data = self.user_d)
-
+        self.x = np.array([-1.7237128E+00,1.8712276E+00,-9.6608055E-01,
+                           -2.8394297E-01,1.3416969E+00,1.3757038E+00,
+                           -1.3703436E+00,4.2581975E-02,-1.4970151E-01,
+                           8.2065094E-01], dtype = np.float64)
+        self.y = np.array([2.3095947E+01,2.6449392E+01,1.0204468E+01,
+                           5.40507,1.5787588E+01,1.6520903E+01,
+                           1.5971818E+01,4.7668524E+00,4.9337711E+00,
+                           8.7348375E+00], dtype = np.float64)
+        
+        self.ey = np.zeros((10), dtype = np.float64)
+        self.ey[:] = 0.2
+        
+        self.user_d = {"x": self.x, "y": self.y, "ey": self.ey}
+        
+        self.m = 10
+        self.n = 3
+        
+        self.pars = np.array([1.0, 1.0, 1.0], dtype = np.float64)
+        self.act = np.array([4.7, 0.0, 6.2], dtype = np.float64)
+        
+        self.fit = pycmpfit.Mpfit(quadratic_userfunc, 
+                                  self.m, 
+                                  self.pars, 
+                                  private_data = self.user_d)
+        
     def test_fit(self):
         self.fit.mpfit()
         self.assertEqual(self.fit.result.status, 1)
         self.assertTrue(self.fit.result.bestnorm <= 5.679323 and 
                         self.fit.result.bestnorm >= 5.679322)
         print_results(self.fit.result, self.pars, self.act, "Quadratic Function")
+
+
+def gaussian_userfunc(m, n, x, private_data):
+    devs = np.zeros((m), dtype = np.float64)
+    user_dict = {"deviates": None}
+
+    sig2 = x[3]*x[3]
+    
+    for i in range(m):
+        xc = private_data["x"][i] - x[2]
+        devs[i] = (private_data["y"][i] - x[1]*math.exp((-0.5*xc*xc)/sig2) - x[0])/private_data["ey"][i]
+
+    user_dict["deviates"] = devs
+
+    return user_dict
+
+
+class GaussTest(unittest.TestCase):
+
+    def setUp(self):
+        self.x = np.array([-1.7237128E+00,1.8712276E+00,-9.6608055E-01,
+                           -2.8394297E-01,1.3416969E+00,1.3757038E+00,
+                           -1.3703436E+00,4.2581975E-02,-1.4970151E-01,
+                           8.2065094E-01], dtype = np.float64)        
+        self.y = np.array([-4.4494256E-02,8.7324673E-01,7.4443483E-01,
+                           4.7631559E+00,1.7187297E-01,1.1639182E-01,
+                           1.5646480E+00,5.2322268E+00,4.2543168E+00,
+                           6.2792623E-01], dtype = np.float64)
+
+        self.ey = np.zeros((10), dtype = np.float64)
+        self.ey[:] = 0.5
         
+        self.user_d = {"x": self.x, "y": self.y, "ey": self.ey}
+        
+        self.m = 10
+        self.n = 4
+        
+        self.pars = np.array([0.0, 1.0, 1.0, 1.0], dtype = np.float64)
+        self.act = np.array([0.0, 4.70, 0.0, 0.5], dtype = np.float64)
+        
+        self.fit = pycmpfit.Mpfit(gaussian_userfunc, 
+                                  self.m, 
+                                  self.pars, 
+                                  private_data = self.user_d)
 
+    def test_fit(self):
+        self.fit.mpfit()
+        self.assertEqual(self.fit.result.status, 1)
+        self.assertTrue(self.fit.result.bestnorm <= 10.350032 and 
+                        self.fit.result.bestnorm >= 10.350031)
+        print_results(self.fit.result, self.pars, self.act, "Gaussian Function")
 
+        
 if __name__ == '__main__':
     unittest.main()
     
