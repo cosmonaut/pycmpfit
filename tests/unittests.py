@@ -68,9 +68,9 @@ class LinearTest(unittest.TestCase):
 
     def test_fit(self):
         self.fit.mpfit()
-        self.assertEqual(self.fit.result.status, 1)
+        self.assertEqual(self.fit.result.status, 1, msg = "Linear fit status should be 1")
         self.assertTrue(self.fit.result.bestnorm <= 2.756285 and 
-                        self.fit.result.bestnorm >= 2.756284)
+                        self.fit.result.bestnorm >= 2.756284, msg = "Linear fit chi-square failure")
         print_results(self.fit.result, self.pars, self.act, "Linear Function")
 
 
@@ -116,9 +116,9 @@ class QuadraticTest(unittest.TestCase):
         
     def test_fit(self):
         self.fit.mpfit()
-        self.assertEqual(self.fit.result.status, 1)
+        self.assertEqual(self.fit.result.status, 1, msg = "Quadratic fit status should be 1")
         self.assertTrue(self.fit.result.bestnorm <= 5.679323 and 
-                        self.fit.result.bestnorm >= 5.679322)
+                        self.fit.result.bestnorm >= 5.679322, msg = "Quadratic fit chi-square failure")
         print_results(self.fit.result, self.pars, self.act, "Quadratic Function")
 
 
@@ -167,9 +167,9 @@ class GaussTest(unittest.TestCase):
 
     def test_fit(self):
         self.fit.mpfit()
-        self.assertEqual(self.fit.result.status, 1)
+        self.assertEqual(self.fit.result.status, 1, msg = "Gaussian fit status should be 1")
         self.assertTrue(self.fit.result.bestnorm <= 10.350032 and 
-                        self.fit.result.bestnorm >= 10.350031)
+                        self.fit.result.bestnorm >= 10.350031, msg = "Gaussian fit chi-square failure")
         print_results(self.fit.result, self.pars, self.act, "Gaussian Function")
 
         
