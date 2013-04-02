@@ -7,14 +7,26 @@ from libc.stdlib cimport free, malloc
 cdef extern from "stdlib.h" nogil:
     void *memcpy(void *dest, void *src, size_t n)
 
+cdef extern from "string.h" nogil:
+    void *memset(void *BLOCK, int C, size_t SIZE)
+
 # Initialize numpy C API.
 cnp.import_array()
 
 # cmpfit header info
 cdef extern from "mpfit.h":
-    # TODO: add support
     struct mp_par_struct:
-        pass
+        int fixed
+        int limited[2]
+        double limits[2]
+        char *parname
+        double step
+        double relstep
+        int side
+        int deriv_debug
+        double deriv_reltol
+        double deriv_abstol
+
     # TODO: add support
     struct mp_config_struct:
         pass
@@ -121,6 +133,32 @@ cdef class _UserFunc(object):
 # data between python and C...
 _uf = _UserFunc(None)
 
+# python wrapped mp_par struct
+cdef class MpPar(object):
+    cdef public object fixed
+    cdef public object limited
+    cdef public object limits
+    cdef public object parname
+    cdef public object step
+    cdef public object relstep
+    cdef public object side
+    cdef public object deriv_debug
+    cdef public object deriv_reltol
+    cdef public object deriv_abstol
+
+    def __init__(self):
+        self.fixed = 0
+        self.limited = np.array([0, 0], dtype = np.int)
+        self.limits = np.array([0.0, 0.0], dtype = np.float64)
+        self.parname = ""
+        self.step = 0.0
+        self.relstep = 0.0
+        self.side = 0
+        self.deriv_debug = 0
+        self.deriv_reltol = 0.0
+        self.deriv_abstol = 0.0
+
+
 # python wrapped mp_result struct
 cdef class MpResult(object):
     cdef public object bestnorm
@@ -169,8 +207,8 @@ cdef class Mpfit(object):
     cdef public object result_pars
 
     def __cinit__(self, user_func, m, cnp.ndarray xall, 
-                 mp_par = None, 
-                 mp_config = None, 
+                 py_mp_par = None, 
+                 py_mp_config = None, 
                  private_data = None):
         self._user_func = user_func
         
@@ -191,8 +229,16 @@ cdef class Mpfit(object):
         else:
             raise Exception("xall has incorrect type %s" % type(xall))
 
-        self._mp_par = mp_par
-        self._mp_config = mp_config
+        # TODO: This needs to be copied for the result so it can be freed?? (we free in __del__...)
+        self._c_result.xerror = <double *>malloc(self._n_par*sizeof(double))
+
+        if (py_mp_par):
+            self.set_mp_par(py_mp_par)
+        else:
+            self._mp_par = None
+            self._c_pars = <mp_par *>0
+        
+        self._mp_config = py_mp_config
         self._private_data = private_data
         self.result = None
 
@@ -203,6 +249,50 @@ cdef class Mpfit(object):
         self._user_func = user_func
         _uf.setFunc(self._user_func)
 
+    def set_mp_par(self, py_mp_par):
+        if type(py_mp_par) == list:
+            if (len(py_mp_par) == self._n_par):
+                try:
+                    # Free if already exists?
+                    # TODO: test me
+                    if (self._c_pars != NULL):
+                        free(self._c_pars)
+                    # malloc room for all par structs
+                    self._c_pars = <mp_par *>malloc(self._n_par*sizeof(mp_par))
+                except:
+                    raise Exception("Failed to allocate memory for mp_par structs")
+                for i, param in enumerate(py_mp_par):
+                    # Initialize the mp_par structs...
+                    memset(&self._c_pars[i], 0, sizeof(mp_par))
+                    if type(param) == MpPar:
+                        self._c_pars[i].fixed = param.fixed
+                        self._c_pars[i].limited[0] = param.limited[0]
+                        self._c_pars[i].limited[1] = param.limited[1]
+                        self._c_pars[i].limits[0] = param.limits[0]
+                        self._c_pars[i].limits[1] = param.limits[1]
+                        # We need this for python 3 ...
+                        encoded_parname = param.parname.encode()
+                        self._c_pars[i].parname = encoded_parname
+                        self._c_pars[i].step = param.step
+                        self._c_pars[i].relstep = param.relstep
+                        self._c_pars[i].side = param.side
+                        if param.side != 3:
+                            self._c_pars[i].deriv_debug = param.deriv_debug
+                        else:
+                            self._c_pars[i].deriv_debug = 0
+                            print("deriv_debug set to 0. deriv_debug cannot be on when side = 3")
+                            #raise Warning("deriv_debug set to 0 -- cannot be on when side = 3")
+                        self._c_pars[i].deriv_reltol = param.deriv_reltol
+                        self._c_pars[i].deriv_abstol = param.deriv_abstol
+                    else:
+                        raise Exception("mp_par element has incorrect type -- should be MpPar")
+            else:
+                raise Exception("mp_par has incorrect length %i -- should be %i" % (len(py_mp_par), self._n_par))
+        else:
+            raise Exception("mp_par has incorrect type: %s -- should be list" % type(py_mp_par))
+                
+        self._mp_par = py_mp_par
+        
     def mpfit(self):
         # Note: Always reset _uf values before running
         # Note: we don't actually pass private data through, we handle
@@ -214,14 +304,14 @@ cdef class Mpfit(object):
         nparsq_shape[0] = self._n_par**2
 
         # TODO: This needs to be copied for the result so it can be freed?? (we free in __del__...)
-        self._c_result.xerror = <double *>malloc(self._n_par*sizeof(double))
+        #self._c_result.xerror = <double *>malloc(self._n_par*sizeof(double))
 
-        # Note: mp_par and mp_config are still not implemented...
+        # Note: mp_config still not implemented...
         mpfit_ret_code = mpfit(&user_func_wrapper,
                            <int>self._m,
                            <int>self._n_par,
                            self._c_xall,
-                           <mp_par *>0,
+                           self._c_pars,
                            <mp_config *>0,
                            <void *>0,
                            &self._c_result)
@@ -254,16 +344,14 @@ cdef class Mpfit(object):
 
         # Return the fitted parameters
         self.result_pars = cnp.PyArray_SimpleNewFromData(1, npar_shape, cnp.NPY_DOUBLE, <void *>self._c_xall)
-        
+
     def config(self, mp_config):
         self._mp_config = mp_config
-        
-    def par(self, mp_par):
-        self._mp_par = mp_par
 
     def __del__(self):
         free(self._c_xall)
         free(self._c_result.xerror)
+        free(self._c_pars)
 
 
 # public wrapper user function for C library to call

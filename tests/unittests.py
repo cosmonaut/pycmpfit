@@ -108,20 +108,40 @@ class QuadraticTest(unittest.TestCase):
         
         self.pars = np.array([1.0, 1.0, 1.0], dtype = np.float64)
         self.act = np.array([4.7, 0.0, 6.2], dtype = np.float64)
+
+        # For fixed parameter test...
+        self.mp_par = [pycmpfit.MpPar(), pycmpfit.MpPar(), pycmpfit.MpPar()]
+        self.mp_par[1].fixed = 1
         
-        self.fit = pycmpfit.Mpfit(quadratic_userfunc, 
-                                  self.m, 
-                                  self.pars, 
+        self.fit = pycmpfit.Mpfit(quadratic_userfunc,
+                                  self.m,
+                                  self.pars,
                                   private_data = self.user_d)
         
     def test_fit(self):
         self.fit.mpfit()
         self.assertEqual(self.fit.result.status, 1, msg = "Quadratic fit status should be 1")
         self.assertTrue(self.fit.result.bestnorm <= 5.679323 and 
-                        self.fit.result.bestnorm >= 5.679322, msg = "Quadratic fit chi-square failure")
+                       self.fit.result.bestnorm >= 5.679322, msg = "Quadratic fit chi-square failure")
         print_results(self.fit.result, self.pars, self.act, "Quadratic Function")
 
+    def test_fix_fit(self):
+        # Test fixing one parameter using py_mp_par
+        self.pars = np.array([1.0, 0.0, 1.0], dtype = np.float64)
+        self.fit = pycmpfit.Mpfit(quadratic_userfunc,
+                                  self.m,
+                                  self.pars,
+                                  private_data = self.user_d,
+                                  py_mp_par = self.mp_par)
+        
+        self.fit.mpfit()
 
+        self.assertEqual(self.fit.result.status, 1, msg = "Quadratic fix fit status should be 1")
+        self.assertTrue(self.fit.result.bestnorm <= 6.983588 and 
+                       self.fit.result.bestnorm >= 6.983587, msg = "Quadratic fix fit chi-square failure")
+        
+        print_results(self.fit.result, self.pars, self.act, "Quadratic Function (with fixed parameter)")
+        
 def gaussian_userfunc(m, n, x, private_data):
     devs = np.zeros((m), dtype = np.float64)
     user_dict = {"deviates": None}
@@ -159,6 +179,10 @@ class GaussTest(unittest.TestCase):
         
         self.pars = np.array([0.0, 1.0, 1.0, 1.0], dtype = np.float64)
         self.act = np.array([0.0, 4.70, 0.0, 0.5], dtype = np.float64)
+
+        self.mp_par = list(pycmpfit.MpPar() for i in range(4))
+        self.mp_par[0].fixed = 1
+        self.mp_par[2].fixed = 1
         
         self.fit = pycmpfit.Mpfit(gaussian_userfunc, 
                                   self.m, 
@@ -172,6 +196,22 @@ class GaussTest(unittest.TestCase):
                         self.fit.result.bestnorm >= 10.350031, msg = "Gaussian fit chi-square failure")
         print_results(self.fit.result, self.pars, self.act, "Gaussian Function")
 
+    def test_fix_fit(self):
+        self.pars = np.array([0.0, 1.0, 0.0, 0.1])
+
+        self.fit = pycmpfit.Mpfit(gaussian_userfunc,
+                                  self.m,
+                                  self.pars,
+                                  private_data = self.user_d,
+                                  py_mp_par = self.mp_par)
+
+        self.fit.mpfit()
+
+        self.assertEqual(self.fit.result.status, 1, msg = "Gaussian fit status should be 1")
+        self.assertTrue(self.fit.result.bestnorm <= 15.516135 and 
+                        self.fit.result.bestnorm >= 15.516133, msg = "Quadratic fix fit chi-square failure")
+
+        print_results(self.fit.result, self.pars, self.act, "Gaussian Function (with fixed parameters)")
         
 if __name__ == '__main__':
     unittest.main()
