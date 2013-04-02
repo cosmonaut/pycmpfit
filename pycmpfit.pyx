@@ -15,6 +15,8 @@ cnp.import_array()
 
 # cmpfit header info
 cdef extern from "mpfit.h":
+    ctypedef void (*mp_iterproc)()
+
     struct mp_par_struct:
         int fixed
         int limited[2]
@@ -27,9 +29,23 @@ cdef extern from "mpfit.h":
         double deriv_reltol
         double deriv_abstol
 
-    # TODO: add support
+    # NOTE: the user may set the value explicitly; OR, if the passed
+    # value is zero, then the "Default" value will be substituted by
+    # mpfit().
     struct mp_config_struct:
-        pass
+        double ftol
+        double xtol
+        double gtol
+        double epsfcn
+        double stepfactor
+        double covtol
+        int maxiter
+        int maxfev
+        int nprint
+        int douserscale
+        int nofinitecheck
+        mp_iterproc iterproc # placeholder...   
+        
     struct mp_result_struct:
         double bestnorm
         double orignorm
@@ -158,6 +174,35 @@ cdef class MpPar(object):
         self.deriv_reltol = 0.0
         self.deriv_abstol = 0.0
 
+        
+# Python wrapper for mp_config_struct
+cdef class MpConfig(object):
+    cdef public object ftol
+    cdef public object xtol    
+    cdef public object gtol
+    cdef public object epsfcn
+    cdef public object stepfactor
+    cdef public object covtol
+    cdef public object maxiter
+    cdef public object maxfev
+    cdef public object nprint
+    cdef public object douserscale
+    cdef public object nofinitecheck
+
+    def __init__(self):
+        # Set everything to 0, cmpfit will handle defaults
+        self.ftol = 0.0
+        self.xtol = 0.0
+        self.gtol = 0.0
+        self.epsfcn = 0.0
+        self.stepfactor = 0.0
+        self.covtol = 0.0
+        self.maxiter = 0
+        self.maxfev = 0
+        self.nprint = 0
+        self.douserscale = 0
+        self.nofinitecheck = 0
+        
 
 # python wrapped mp_result struct
 cdef class MpResult(object):
@@ -194,7 +239,7 @@ cdef class MpResult(object):
 cdef class Mpfit(object):
     cdef double *_c_xall
     cdef mp_par *_c_pars
-    cdef mp_config *_c_config
+    cdef mp_config _c_config
     cdef mp_result _c_result
     cdef object _user_func
     cdef object _m
@@ -237,8 +282,14 @@ cdef class Mpfit(object):
         else:
             self._mp_par = None
             self._c_pars = <mp_par *>0
-        
-        self._mp_config = py_mp_config
+
+        if (py_mp_config):
+            self.set_mp_config(py_mp_config)
+        else:
+            # Defaults
+            conf = MpConfig()
+            self.set_mp_config(conf)
+            
         self._private_data = private_data
         self.result = None
 
@@ -292,6 +343,23 @@ cdef class Mpfit(object):
             raise Exception("mp_par has incorrect type: %s -- should be list" % type(py_mp_par))
                 
         self._mp_par = py_mp_par
+
+    def set_mp_config(self, py_mp_config):
+        if (type(py_mp_config) != MpConfig):
+            raise Exception("py_mp_config must be MpConfig type")
+
+        self._c_config.ftol = float(py_mp_config.ftol)
+        self._c_config.xtol = float(py_mp_config.xtol)
+        self._c_config.gtol = float(py_mp_config.gtol)
+        self._c_config.epsfcn = float(py_mp_config.epsfcn)
+        self._c_config.stepfactor = float(py_mp_config.stepfactor)
+        self._c_config.covtol = float(py_mp_config.covtol)
+        self._c_config.maxiter = int(py_mp_config.maxiter)
+        self._c_config.maxfev = int(py_mp_config.maxfev)
+        self._c_config.nprint = int(py_mp_config.nprint)
+        self._c_config.douserscale = int(py_mp_config.douserscale)
+        self._c_config.nofinitecheck = int(py_mp_config.nofinitecheck)
+        self._c_config.iterproc = <mp_iterproc>0
         
     def mpfit(self):
         # Note: Always reset _uf values before running
@@ -312,7 +380,7 @@ cdef class Mpfit(object):
                            <int>self._n_par,
                            self._c_xall,
                            self._c_pars,
-                           <mp_config *>0,
+                           &self._c_config,
                            <void *>0,
                            &self._c_result)
 
