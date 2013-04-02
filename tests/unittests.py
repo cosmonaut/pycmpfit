@@ -212,7 +212,28 @@ class GaussTest(unittest.TestCase):
                         self.fit.result.bestnorm >= 15.516133, msg = "Quadratic fix fit chi-square failure")
 
         print_results(self.fit.result, self.pars, self.act, "Gaussian Function (with fixed parameters)")
+
+    def test_fix_limit_fit(self):
+        self.pars = np.array([0.0, 1.0, 0.0, 0.1])
+        self.mp_par[3].limited[0] = 0
+        self.mp_par[3].limited[1] = 1
+        self.mp_par[3].limits[0] = -0.3
+        self.mp_par[3].limits[1] = +0.2
         
+        self.fit = pycmpfit.Mpfit(gaussian_userfunc,
+                                  self.m,
+                                  self.pars,
+                                  private_data = self.user_d,
+                                  py_mp_par = self.mp_par)
+
+        self.fit.mpfit()
+
+        self.assertEqual(self.fit.result.status, 1, msg = "Gaussian fit status should be 1")
+        self.assertTrue(self.fit.result.bestnorm <= 45.180570 and 
+                        self.fit.result.bestnorm >= 45.180568, msg = "Quadratic fix fit chi-square failure")
+
+        print_results(self.fit.result, self.pars, self.act, "Gaussian Function (with fixed and limited parameters)")
+
 if __name__ == '__main__':
     unittest.main()
     
