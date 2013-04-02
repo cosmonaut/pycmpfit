@@ -20,6 +20,13 @@ Build Dependencies:
 
 * cython
 
+Build Instructions:
+=====
+
+The python module can be built using:
+
+        python setup.py build_ext
+
 Documentation:
 =====
 
