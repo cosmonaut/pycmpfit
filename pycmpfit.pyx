@@ -112,9 +112,7 @@ cdef class _UserFunc(object):
         #self.shape[0] = <cnp.npy_intp>0
 
     def setFunc(self, func):
-        # deperecated syntax
-        #args = inspect.getargspec(func).args
-        args = inspect.getfullargspec(func).args
+        args = inspect.getargspec(func).args
         # TODO: Check argment types...
         if (len(args)) != 4:
             raise Exception("User function does not have correct number of arguments")
@@ -166,7 +164,7 @@ cdef class MpPar(object):
 
     def __init__(self):
         self.fixed = 0
-        self.limited = np.array([0, 0], dtype = np.int32)
+        self.limited = np.array([0, 0], dtype = np.int)
         self.limits = np.array([0.0, 0.0], dtype = np.float64)
         self.parname = ""
         self.step = 0.0
@@ -278,6 +276,7 @@ cdef class Mpfit(object):
 
         # TODO: This needs to be copied for the result so it can be freed?? (we free in __del__...)
         self._c_result.xerror = <double *>malloc(self._n_par*sizeof(double))
+        self._c_result.covar = <double *>malloc(self._n_par*self._n_par*sizeof(double))
 
         if (py_mp_par):
             self.set_mp_par(py_mp_par)
@@ -370,8 +369,11 @@ cdef class Mpfit(object):
         cdef cnp.npy_intp npar_shape[1]
         cdef cnp.npy_intp nparsq_shape[1]
         cdef cnp.npy_intp nfunc_shape[1]
+        cdef cnp.npy_intp covar_shape[2]
         npar_shape[0] = self._n_par
         nparsq_shape[0] = self._n_par**2
+        covar_shape[0] = self._n_par
+        covar_shape[1] = self._n_par
 
         # TODO: This needs to be copied for the result so it can be freed?? (we free in __del__...)
         #self._c_result.xerror = <double *>malloc(self._n_par*sizeof(double))
@@ -408,6 +410,11 @@ cdef class Mpfit(object):
                                                                npar_shape, 
                                                                cnp.NPY_DOUBLE, 
                                                                <void *>self._c_result.xerror)
+            self.result.covar = cnp.PyArray_SimpleNewFromData(2, 
+                                                               covar_shape, 
+                                                               cnp.NPY_DOUBLE, 
+                                                               <void *>self._c_result.covar)
+
             self.result.version = self._c_result.version.decode(sys.stdout.encoding)
         else:
             raise Exception("C backend has returned error: " + _mpfit_errors[mpfit_ret_code])
