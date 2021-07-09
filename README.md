@@ -12,7 +12,7 @@ subdirectory.
 Dependencies:
 =====
 
-* python (2 or 3)
+* python (3)
 * numpy
 
 Build Dependencies:
@@ -30,5 +30,6 @@ The python module can be built using:
 Documentation:
 =====
 
-A link for documentation is coming soon...
+See tests/unittests.py for example usage scenarios. More documentation
+and examples may be added later.
 

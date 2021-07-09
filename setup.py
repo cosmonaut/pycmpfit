@@ -6,8 +6,8 @@ from Cython.Distutils import build_ext
 from numpy.distutils.misc_util import get_numpy_include_dirs
 
 
-ext_modules = Extension("pycmpfit", ["pycmpfit.pyx", "cmpfit-1.2/mpfit.c"],
-                        include_dirs = get_numpy_include_dirs() + ["cmpfit-1.2"]
+ext_modules = Extension("pycmpfit", ["pycmpfit.pyx", "cmpfit-1.4/mpfit.c"],
+                        include_dirs = get_numpy_include_dirs() + ["cmpfit-1.4"]
 )
 
 
