@@ -7,7 +7,7 @@ from numpy.distutils.misc_util import get_numpy_include_dirs
 
 
 ext_modules = Extension("pycmpfit", ["pycmpfit.pyx", "cmpfit-1.2/mpfit.c"],
-                        include_dirs = get_numpy_include_dirs()
+                        include_dirs = get_numpy_include_dirs() + ["cmpfit-1.2"]
 )
 
 
