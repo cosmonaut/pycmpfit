@@ -430,6 +430,7 @@ cdef class Mpfit(object):
     def __del__(self):
         free(self._c_xall)
         free(self._c_result.xerror)
+        free(self._c_result.covar)
         free(self._c_pars)
 
 
