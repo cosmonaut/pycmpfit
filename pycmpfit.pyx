@@ -112,7 +112,9 @@ cdef class _UserFunc(object):
         #self.shape[0] = <cnp.npy_intp>0
 
     def setFunc(self, func):
-        args = inspect.getargspec(func).args
+        # deperecated syntax
+        #args = inspect.getargspec(func).args
+        args = inspect.getfullargspec(func).args
         # TODO: Check argment types...
         if (len(args)) != 4:
             raise Exception("User function does not have correct number of arguments")
@@ -164,7 +166,7 @@ cdef class MpPar(object):
 
     def __init__(self):
         self.fixed = 0
-        self.limited = np.array([0, 0], dtype = np.int)
+        self.limited = np.array([0, 0], dtype = np.int32)
         self.limits = np.array([0.0, 0.0], dtype = np.float64)
         self.parname = ""
         self.step = 0.0
